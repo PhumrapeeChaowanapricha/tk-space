@@ -9,6 +9,8 @@ from consts import *
 from elements import Ship, Bullet, Enemy
 from utils import random_edge_position, normalize_vector, direction_to_dxdy, vector_len, distance
 
+from gamelib import Sprite, GameApp, Text, KeyboardHandler
+
 
 class SpaceGame(GameApp):
     def init_game(self):
@@ -37,6 +39,8 @@ class SpaceGame(GameApp):
             (0.2, StarEnemyGenerationStrategy()),
             (1.0, EdgeEnemyGenerationStrategy())
         ]
+
+        self.init_key_handlers()
 
     def add_enemy(self, enemy):
         self.enemies.append(enemy)
@@ -166,41 +170,64 @@ class SpaceGame(GameApp):
 
         self.update_score()
         self.update_bomb_power()
-
-    class EnemyGenerationStrategy(ABC):
-        @abstractmethod
-        def generate(self, space_game, ship):
-            pass
     
-    class StarEnemyGenerationStrategy(EnemyGenerationStrategy):
-        def generate(self, space_game, ship):
-            enemies = []
+    def init_key_handlers(self):
+        key_pressed_handler = ShipMovementKeyPressedHandler(self, self.ship)
+        key_pressed_handler = BombKeyPressedHandler(self, self.ship, key_pressed_handler)
+        self.key_pressed_handler = key_pressed_handler
 
+        key_released_handler = ShipMovementKeyReleasedHandler(self, self.ship)
+        self.key_released_handler = key_released_handler
+
+class EnemyGenerationStrategy(ABC):
+    @abstractmethod
+    def generate(self, space_game, ship):
+        pass
+    
+class StarEnemyGenerationStrategy(EnemyGenerationStrategy):
+    def generate(self, space_game, ship):
+        enemies = []
+
+        x = randint(100, CANVAS_WIDTH - 100)
+        y = randint(100, CANVAS_HEIGHT - 100)
+
+        while vector_len(x - ship.x, y - ship.y) < 200:
             x = randint(100, CANVAS_WIDTH - 100)
             y = randint(100, CANVAS_HEIGHT - 100)
 
-            while vector_len(x - ship.x, y - ship.y) < 200:
-                x = randint(100, CANVAS_WIDTH - 100)
-                y = randint(100, CANVAS_HEIGHT - 100)
+        for d in range(18):
+            dx, dy = direction_to_dxdy(d * 20)
+            enemy = Enemy(space_game, x, y, dx * ENEMY_BASE_SPEED, dy * ENEMY_BASE_SPEED)
+            enemies.append(enemy)
 
-            for d in range(18):
-                dx, dy = direction_to_dxdy(d * 20)
-                enemy = Enemy(space_game, x, y, dx * ENEMY_BASE_SPEED, dy * ENEMY_BASE_SPEED)
-                enemies.append(enemy)
+        return enemies
 
-            return enemies
+class EdgeEnemyGenerationStrategy(EnemyGenerationStrategy):
+    def generate(self, space_game, ship):
+        x, y = random_edge_position()
+        vx, vy = normalize_vector(ship.x - x, ship.y - y)
 
-    class EdgeEnemyGenerationStrategy(EnemyGenerationStrategy):
-        def generate(self, space_game, ship):
-            x, y = random_edge_position()
-            vx, vy = normalize_vector(ship.x - x, ship.y - y)
+        vx *= ENEMY_BASE_SPEED
+        vy *= ENEMY_BASE_SPEED
+        enemy = Enemy(space_game, x, y, vx, vy)
+        return [enemy]
 
-            vx *= ENEMY_BASE_SPEED
-            vy *= ENEMY_BASE_SPEED
-            enemy = Enemy(space_game, x, y, vx, vy)
-            return [enemy]
+class GameKeyboardHandler(KeyboardHandler):
+    def __init__(self, game_app, ship, successor=None):
+        super().__init__(successor)
+        self.game_app = game_app
+        self.ship = ship
 
-    def on_key_pressed(self, event):
+class BombKeyPressedHandler(GameKeyboardHandler):
+    def handle(self, event):
+        print('here')
+        if event.char.upper() == 'Z':
+            self.game_app.bomb()
+        else:                                     
+            super().handle(event)
+
+class ShipMovementKeyPressedHandler(GameKeyboardHandler):
+    def handle(self, event):
         if event.keysym == 'Left':
             self.ship.start_turn('LEFT')
         elif event.keysym == 'Right':
@@ -210,12 +237,13 @@ class SpaceGame(GameApp):
         elif event.char.upper() == 'Z':
             self.bomb()
 
-    def on_key_released(self, event):
+class ShipMovementKeyReleasedHandler(GameKeyboardHandler):
+    def handle(self, event):
         if event.keysym == 'Left':
             self.ship.stop_turn('LEFT')
         elif event.keysym == 'Right':
             self.ship.stop_turn('RIGHT')
-
+        
 
 if __name__ == "__main__":
     root = tk.Tk()
