@@ -48,25 +48,37 @@ class SpaceGame(GameApp):
 
     def bullet_count(self):
         return len(self.bullets)
+    
+    def create_circle(self):
+        self.bomb_canvas_id = self.canvas.create_oval(
+            self.ship.x - BOMB_RADIUS, 
+            self.ship.y - BOMB_RADIUS,
+            self.ship.x + BOMB_RADIUS, 
+            self.ship.y + BOMB_RADIUS
+        )
+    
+    def hide_after(self):
+        self.after(200, lambda: self.canvas.delete(self.bomb_canvas_id))
+
+    def eliminate_enemy(self):
+        for e in self.enemies:
+            if self.ship.distance_to(e) <= BOMB_RADIUS:
+                e.to_be_deleted = True
+
+    def create_rectangle(self):
+        self.rectangle_canvas_id = self.canvas.create_rectangle(self.ship.x - BOMB_RADIUS, 
+            self.ship.y - BOMB_RADIUS,
+            self.ship.x + BOMB_RADIUS, 
+            self.ship.y + BOMB_RADIUS)
+        self.after(200, lambda: self.canvas.delete(self.rectangle_canvas_id))
 
     def bomb(self):
-        if self.bomb_power == BOMB_FULL_POWER:
-            self.bomb_power = 0
-
-            self.bomb_canvas_id = self.canvas.create_oval(
-                self.ship.x - BOMB_RADIUS, 
-                self.ship.y - BOMB_RADIUS,
-                self.ship.x + BOMB_RADIUS, 
-                self.ship.y + BOMB_RADIUS
-            )
-
-            self.after(200, lambda: self.canvas.delete(self.bomb_canvas_id))
-
-            for e in self.enemies:
-                if self.ship.distance_to(e) <= BOMB_RADIUS:
-                    e.to_be_deleted = True
-
-            self.update_bomb_power_text()
+        if self.bomb_power.value == BOMB_FULL_POWER:
+            self.bomb_power.value = 0
+            self.create_rectangle()
+            self.create_circle()
+            self.hide_after()
+            self.eliminate_enemy()
 
     def update_bomb_power_text(self):
         self.bomb_power_text.set_text('Power: %d%%' % self.bomb_power)
